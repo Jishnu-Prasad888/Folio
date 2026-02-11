@@ -1,74 +1,209 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import path from 'path'
+import { initializeDatabase } from './database'
+import { setupWallpaperHandlers } from './wallpaper'
+import { setupImageProcessorHandlers } from './imageProcessor'
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+let mainWindow: BrowserWindow | null = null
+
+// Initialize database
+const db = initializeDatabase()
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 20, y: 20 }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
-
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
-
   createWindow()
 
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+// IPC Handlers
+ipcMain.handle('get-images', async (event, folderId?: string, search?: string) => {
+  try {
+    if (search) {
+      const query = `
+        SELECT i.*, GROUP_CONCAT(t.name) as tags
+        FROM images i
+        LEFT JOIN image_tags it ON i.id = it.image_id
+        LEFT JOIN tags t ON it.tag_id = t.id
+        WHERE i.deleted_at IS NULL 
+        AND (i.file_path LIKE ? OR EXISTS (
+          SELECT 1 FROM notes n WHERE n.image_id = i.id AND n.markdown LIKE ?
+        ))
+        GROUP BY i.id
+        ORDER BY i.created_at DESC
+      `
+      const searchTerm = `%${search}%`
+      const images = db.prepare(query).all(searchTerm, searchTerm)
+      return { success: true, data: images }
+    }
+
+    if (folderId) {
+      const images = db.prepare(`
+        SELECT i.*, GROUP_CONCAT(t.name) as tags
+        FROM images i
+        LEFT JOIN image_tags it ON i.id = it.image_id
+        LEFT JOIN tags t ON it.tag_id = t.id
+        WHERE i.folder_id = ? AND i.deleted_at IS NULL
+        GROUP BY i.id
+        ORDER BY i.created_at DESC
+      `).all(folderId)
+      return { success: true, data: images }
+    }
+
+    const images = db.prepare(`
+      SELECT i.*, GROUP_CONCAT(t.name) as tags
+      FROM images i
+      LEFT JOIN image_tags it ON i.id = it.image_id
+      LEFT JOIN tags t ON it.tag_id = t.id
+      WHERE i.deleted_at IS NULL
+      GROUP BY i.id
+      ORDER BY i.created_at DESC
+    `).all()
+    return { success: true, data: images }
+  } catch (error) {
+    return { success: false, message: 'Failed to fetch images' }
+  }
+})
+
+ipcMain.handle('create-folder', async (event, name: string, parentId?: string) => {
+  try {
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    
+    db.prepare(`
+      INSERT INTO folders (id, name, parent_id, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, name, parentId || null, now)
+    
+    return { success: true, data: { id, name, parent_id: parentId, created_at: now } }
+  } catch (error) {
+    return { success: false, message: 'Failed to create folder' }
+  }
+})
+
+ipcMain.handle('delete-folder', async (event, id: string) => {
+  try {
+    const now = new Date().toISOString()
+    db.prepare('UPDATE folders SET deleted_at = ? WHERE id = ?').run(now, id)
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: 'Failed to delete folder' }
+  }
+})
+
+ipcMain.handle('update-folder', async (event, id: string, updates: { name?: string }) => {
+  try {
+    if (updates.name) {
+      db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(updates.name, id)
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: 'Failed to update folder' }
+  }
+})
+
+ipcMain.handle('get-trash', async () => {
+  try {
+    // Get deleted images
+    const deletedImages = db.prepare(`
+      SELECT id, file_path as name, deleted_at, 'image' as type
+      FROM images 
+      WHERE deleted_at IS NOT NULL
+    `).all()
+
+    // Get deleted folders
+    const deletedFolders = db.prepare(`
+      SELECT id, name, deleted_at, 'folder' as type
+      FROM folders 
+      WHERE deleted_at IS NOT NULL
+    `).all()
+
+    const trash = [...deletedImages, ...deletedFolders]
+      .sort((a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime())
+
+    return { success: true, data: trash }
+  } catch (error) {
+    return { success: false, message: 'Failed to fetch trash' }
+  }
+})
+
+ipcMain.handle('empty-trash', async () => {
+  try {
+    // Get all deleted images to remove their files
+    const deletedImages = db.prepare('SELECT file_path, thumbnail_path FROM images WHERE deleted_at IS NOT NULL').all()
+    
+    // Remove physical files
+    deletedImages.forEach((img: any) => {
+      try {
+        if (fs.existsSync(img.file_path)) fs.unlinkSync(img.file_path)
+        if (fs.existsSync(img.thumbnail_path)) fs.unlinkSync(img.thumbnail_path)
+      } catch (error) {
+        console.error('Failed to delete file:', error)
+      }
+    })
+
+    // Delete from database
+    db.prepare('DELETE FROM images WHERE deleted_at IS NOT NULL').run()
+    db.prepare('DELETE FROM folders WHERE deleted_at IS NOT NULL').run()
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, message: 'Failed to empty trash' }
+  }
+})
+
+ipcMain.handle('open-file-dialog', async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { success: true, data: result.filePaths.length === 1 ? result.filePaths[0] : result.filePaths }
+    }
+    
+    return { success: false, message: 'No file selected' }
+  } catch (error) {
+    return { success: false, message: 'Failed to open file dialog' }
+  }
+})
+
+// Setup other handlers
+setupWallpaperHandlers(ipcMain, db)
+setupImageProcessorHandlers(ipcMain, db)
