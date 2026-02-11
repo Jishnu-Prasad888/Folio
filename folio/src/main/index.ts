@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain,dialog  } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { initializeDatabase } from './database'
 import { setupWallpaperHandlers } from './wallpaper'
 import { setupImageProcessorHandlers } from './imageProcessor'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
+import { is } from '@electron-toolkit/utils'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -14,7 +15,6 @@ type TrashItem = {
   deleted_at: string
   type: 'image' | 'folder'
 }
-
 
 // Initialize database
 const db = initializeDatabase()
@@ -28,13 +28,20 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, '../preload/preload.js')
     },
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 20, y: 20 }
   })
 
-  if (process.env.NODE_ENV === 'development') {
+  // if (process.env.NODE_ENV === 'development') {
+  //   mainWindow.loadURL('http://localhost:5173')
+  //   mainWindow.webContents.openDevTools()
+  // } else {
+  //   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+  // }
+
+  if (is.dev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
@@ -55,6 +62,43 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+ipcMain.handle('get-folders', async () => {
+  try {
+    const folders = db
+      .prepare(
+        `
+        SELECT *
+        FROM folders
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+      `
+      )
+      .all()
+
+    return { success: true, data: folders }
+  } catch (error) {
+    return { success: false, message: 'Failed to fetch folders' }
+  }
+})
+
+ipcMain.handle('get-tags', async () => {
+  try {
+    const tags = db
+      .prepare(
+        `
+        SELECT *
+        FROM tags
+        ORDER BY name ASC
+      `
+      )
+      .all()
+
+    return { success: true, data: tags }
+  } catch (error) {
+    return { success: false, message: 'Failed to fetch tags' }
   }
 })
 
@@ -80,7 +124,9 @@ ipcMain.handle('get-images', async (event, folderId?: string, search?: string) =
     }
 
     if (folderId) {
-      const images = db.prepare(`
+      const images = db
+        .prepare(
+          `
         SELECT i.*, GROUP_CONCAT(t.name) as tags
         FROM images i
         LEFT JOIN image_tags it ON i.id = it.image_id
@@ -88,11 +134,15 @@ ipcMain.handle('get-images', async (event, folderId?: string, search?: string) =
         WHERE i.folder_id = ? AND i.deleted_at IS NULL
         GROUP BY i.id
         ORDER BY i.created_at DESC
-      `).all(folderId)
+      `
+        )
+        .all(folderId)
       return { success: true, data: images }
     }
 
-    const images = db.prepare(`
+    const images = db
+      .prepare(
+        `
       SELECT i.*, GROUP_CONCAT(t.name) as tags
       FROM images i
       LEFT JOIN image_tags it ON i.id = it.image_id
@@ -100,7 +150,9 @@ ipcMain.handle('get-images', async (event, folderId?: string, search?: string) =
       WHERE i.deleted_at IS NULL
       GROUP BY i.id
       ORDER BY i.created_at DESC
-    `).all()
+    `
+      )
+      .all()
     return { success: true, data: images }
   } catch (error) {
     return { success: false, message: 'Failed to fetch images' }
@@ -111,12 +163,14 @@ ipcMain.handle('create-folder', async (event, name: string, parentId?: string) =
   try {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    
-    db.prepare(`
+
+    db.prepare(
+      `
       INSERT INTO folders (id, name, parent_id, created_at)
       VALUES (?, ?, ?, ?)
-    `).run(id, name, parentId || null, now)
-    
+    `
+    ).run(id, name, parentId || null, now)
+
     return { success: true, data: { id, name, parent_id: parentId, created_at: now } }
   } catch (error) {
     return { success: false, message: 'Failed to create folder' }
@@ -147,25 +201,30 @@ ipcMain.handle('update-folder', async (event, id: string, updates: { name?: stri
 ipcMain.handle('get-trash', async () => {
   try {
     // Get deleted images
-    const deletedImages = db.prepare(`
+    const deletedImages = db
+      .prepare(
+        `
       SELECT id, file_path as name, deleted_at, 'image' as type
       FROM images 
       WHERE deleted_at IS NOT NULL
-    `).all()
+    `
+      )
+      .all()
 
     // Get deleted folders
-    const deletedFolders = db.prepare(`
+    const deletedFolders = db
+      .prepare(
+        `
       SELECT id, name, deleted_at, 'folder' as type
       FROM folders 
       WHERE deleted_at IS NOT NULL
-    `).all()
+    `
+      )
+      .all()
 
-    const trash = ([...deletedImages, ...deletedFolders] as TrashItem[])
-  .sort((a, b) =>
-    new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
-  )
-
-
+    const trash = ([...deletedImages, ...deletedFolders] as TrashItem[]).sort(
+      (a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
+    )
 
     return { success: true, data: trash }
   } catch (error) {
@@ -176,8 +235,10 @@ ipcMain.handle('get-trash', async () => {
 ipcMain.handle('empty-trash', async () => {
   try {
     // Get all deleted images to remove their files
-    const deletedImages = db.prepare('SELECT file_path, thumbnail_path FROM images WHERE deleted_at IS NOT NULL').all()
-    
+    const deletedImages = db
+      .prepare('SELECT file_path, thumbnail_path FROM images WHERE deleted_at IS NOT NULL')
+      .all()
+
     // Remove physical files
     deletedImages.forEach((img: any) => {
       try {
@@ -207,87 +268,20 @@ ipcMain.handle('open-file-dialog', async () => {
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
-      return { success: true, data: result.filePaths.length === 1 ? result.filePaths[0] : result.filePaths }
+      return {
+        success: true,
+        data: result.filePaths.length === 1 ? result.filePaths[0] : result.filePaths
+      }
     }
-    
+
     return { success: false, message: 'No file selected' }
   } catch (error) {
     return { success: false, message: 'Failed to open file dialog' }
   }
 })
 
-ipcMain.handle('edit-image', async (_event, imageId: string, edit: { operation: string; data: any }) => {
-  try {
-    const { operation, data } = edit
-
-    if (operation === 'rotate') {
-      db.prepare(`
-        UPDATE images
-        SET rotation = ?, updated_at = ?
-        WHERE id = ?
-      `).run(data, new Date().toISOString(), imageId)
-    }
-
-    if (operation === 'crop') {
-      db.prepare(`
-        UPDATE images
-        SET crop_data = ?, updated_at = ?
-        WHERE id = ?
-      `).run(JSON.stringify(data), new Date().toISOString(), imageId)
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Edit image failed:', error)
-    return { success: false }
-  }
-})
-
-ipcMain.handle(
-  'create-image',
-  async (_event, filePath: string, folderId?: string) => {
-    try {
-      const userDataPath = app.getPath('userData')
-      const imagesDir = path.join(userDataPath, 'images', 'original')
-
-      if (!fs.existsSync(imagesDir)) {
-        fs.mkdirSync(imagesDir, { recursive: true })
-      }
-
-      const id = uuidv4()
-      const ext = path.extname(filePath)
-      const newFileName = `${id}${ext}`
-      const newPath = path.join(imagesDir, newFileName)
-
-      // Copy file into app storage
-      fs.copyFileSync(filePath, newPath)
-
-      // Insert into database
-      db.prepare(`
-        INSERT INTO images (
-          id,
-          file_path,
-          thumbnail_path,
-          folder_id,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-      `).run(
-        id,
-        newPath,
-        newPath, // replace later with actual thumbnail path
-        folderId ?? null
-      )
-
-      return { success: true, id }
-    } catch (error) {
-      console.error(error)
-      return { success: false }
-    }
-  }
-)
 ipcMain.handle('get-settings', async () => {
   try {
     const rows = db.prepare('SELECT key, value FROM settings').all()
@@ -325,8 +319,6 @@ ipcMain.handle('update-settings', async (_event, updates: Record<string, string>
     return { success: false }
   }
 })
-
-
 
 // Setup other handlers
 setupWallpaperHandlers(ipcMain, db)
