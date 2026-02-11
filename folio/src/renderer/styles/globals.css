@@ -1,132 +1,175 @@
-
+/* ===========================
+   Tailwind v4.1 Directives
+=========================== */
 @import "tailwindcss";
 
-
 /* ===========================
-   BARLOW
+   Fonts
 =========================== */
 
+/* BARLOW */
 @font-face {
   font-family: "Barlow";
   src: url("../assets/fonts/Barlow-Regular.ttf") format("truetype");
   font-weight: 400;
-  font-style: normal;
 }
-
 @font-face {
   font-family: "Barlow";
   src: url("../assets/fonts/Barlow-Medium.ttf") format("truetype");
   font-weight: 500;
-  font-style: normal;
 }
-
 @font-face {
   font-family: "Barlow";
   src: url("../assets/fonts/Barlow-SemiBold.ttf") format("truetype");
   font-weight: 600;
-  font-style: normal;
 }
-
 @font-face {
   font-family: "Barlow";
   src: url("../assets/fonts/Barlow-Bold.ttf") format("truetype");
   font-weight: 700;
-  font-style: normal;
 }
 
-
-/* ===========================
-   PLAY
-=========================== */
-
+/* PLAY */
 @font-face {
   font-family: "Play";
   src: url("../assets/fonts/Play-Regular.ttf") format("truetype");
   font-weight: 400;
 }
-
 @font-face {
   font-family: "Play";
   src: url("../assets/fonts/Play-Bold.ttf") format("truetype");
   font-weight: 700;
 }
 
-
-/* ===========================
-   SANSITA
-=========================== */
-
+/* SANSITA */
 @font-face {
   font-family: "Sansita";
   src: url("../assets/fonts/Sansita-Regular.ttf") format("truetype");
   font-weight: 400;
 }
-
 @font-face {
   font-family: "Sansita";
   src: url("../assets/fonts/Sansita-Bold.ttf") format("truetype");
   font-weight: 700;
 }
 
+/* ===========================
+   Base Styles
+=========================== */
 @layer base {
   * {
-    @apply border-border;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
-  body {
-    @apply bg-base-bg font-body text-dark-base;
+  html, body {
+    background-color: #F7FAFB;
+    font-family: 'Barlow', sans-serif;
+    color: #16232B;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
   html.dark body {
-    @apply bg-dark-base text-neutral-100;
+    background-color: #16232B;
+    color: #E4EEF0;
   }
 }
 
+/* ===========================
+   Components
+=========================== */
 @layer components {
   .btn-primary {
-    @apply rounded-xl bg-primary-400 px-4 py-2 font-ui text-white transition-colors hover:bg-primary-500;
+    @apply rounded-xl px-4 py-2 transition-colors;
+    background-color: #FF5B04;
+    color: white;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
   }
-
+  .btn-primary:hover {
+    background-color: #E24E00;
+  }
+  
   .btn-secondary {
-    @apply rounded-xl border border-base-border bg-neutral-100 px-4 py-2 font-ui transition-colors hover:bg-neutral-200;
+    @apply rounded-xl border px-4 py-2 transition-colors;
+    border-color: #D8E2E6;
+    background-color: #E4EEF0;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
   }
-
+  .btn-secondary:hover {
+    background-color: #DADEE0;
+  }
+  
   .btn-danger {
-    @apply rounded-xl bg-error-soft px-4 py-2 font-ui text-error-text transition-opacity hover:opacity-80;
+    @apply rounded-xl px-4 py-2 transition-opacity;
+    background-color: #FCE8EC;
+    color: #8B3A4A;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
   }
-
+  .btn-danger:hover {
+    opacity: 0.8;
+  }
+  
   .btn-ghost {
-    @apply rounded-xl px-4 py-2 font-ui transition-colors hover:bg-neutral-100;
+    @apply rounded-xl px-4 py-2 transition-colors;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+  }
+  .btn-ghost:hover {
+    background-color: #E4EEF0;
   }
 
   .card {
-    @apply rounded-3xl border border-base-border bg-base-surface p-4;
+    @apply rounded-3xl border p-4;
+    border-color: #D8E2E6;
+    background-color: #FFFFFF;
   }
-
+  
   .card-alt {
-    @apply rounded-3xl border border-base-border bg-base-surfaceAlt p-4;
+    @apply rounded-3xl border p-4;
+    border-color: #D8E2E6;
+    background-color: #F1F6F8;
   }
 
   .tag {
-    @apply rounded-full bg-accent-lavender px-3 py-1 font-ui text-xs text-dark-base transition-colors hover:bg-accent-plum hover:text-white;
+    @apply rounded-full px-3 py-1 text-xs transition-colors;
+    background-color: #ECD0DE;
+    color: #16232B;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+  }
+  .tag:hover {
+    background-color: #A25166;
+    color: white;
   }
 
   .input {
-    @apply rounded-xl border border-base-border bg-base-surface px-3 py-2 font-body text-sm focus:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-300;
+    @apply rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2;
+    border-color: #D8E2E6;
+    background-color: #FFFFFF;
+    font-family: 'Barlow', sans-serif;
+  }
+  .input:focus {
+    border-color: #FF8F5C;
+    --tw-ring-color: #FF8F5C;
   }
 
   .error-message {
-    @apply rounded-xl border border-base-border bg-error-soft p-3 text-error-text;
+    @apply rounded-xl border p-3;
+    border-color: #D8E2E6;
+    background-color: #FCE8EC;
+    color: #8B3A4A;
   }
 }
 
+/* ===========================
+   Utilities
+=========================== */
 @layer utilities {
   .glass {
-    @apply backdrop-blur-md bg-white/80;
+    backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.8);
   }
-  
   .glass-dark {
-    @apply backdrop-blur-md bg-dark-base/80;
+    backdrop-filter: blur(12px);
+    background-color: rgba(22, 35, 43, 0.8);
   }
 }

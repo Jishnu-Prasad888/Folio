@@ -3,9 +3,9 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
     "skipLibCheck": true,
-    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -18,8 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/renderer/*"]
-    }
+    },
+    "esModuleInterop": true
   },
-  "include": ["src/renderer"],
+  "include": ["src/renderer", "src/main", "src/preload"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
