@@ -1,6 +1,4 @@
 import React, { useEffect } from 'react'
-import { FixedSizeGrid as Grid } from 'react-window'
-import AutoSizer from 'react-virtualized-auto-sizer'
 import { useAppStore } from '../../store'
 import ImageCard from './ImageCard'
 import { format } from 'date-fns'
@@ -9,7 +7,11 @@ const ImageGrid: React.FC = () => {
   const { images, loadImages, currentFolder, isLoading } = useAppStore()
 
   useEffect(() => {
-    loadImages(currentFolder === 'folders' ? undefined : currentFolder)
+    loadImages(
+  currentFolder && currentFolder !== 'folders'
+    ? currentFolder
+    : undefined
+)
   }, [currentFolder])
 
   if (isLoading) {

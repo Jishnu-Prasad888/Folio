@@ -5,6 +5,11 @@ import Button from '../Common/Button'
 import Modal from '../Common/Modal'
 import { useDropzone } from 'react-dropzone'
 
+interface ElectronFile extends File {
+  path: string
+}
+
+
 interface ImageUploadProps {
   isOpen: boolean
   onClose: () => void
@@ -48,7 +53,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         const file = selectedFiles[i]
         
         // In Electron, we need to use the file path instead of File object
-        const filePath = (file as any).path
+        const filePath = (file as ElectronFile).path
+
         
         if (filePath) {
           await window.api.createImage(filePath, targetFolder)
@@ -78,7 +84,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       if (result.success && result.data) {
         // Handle multiple file paths
         const filePaths = Array.isArray(result.data) ? result.data : [result.data]
-        const files = filePaths.map(path => ({
+        const files = filePaths.map((path: string) => ({
           name: path.split('/').pop() || 'Unknown',
           path: path,
           size: 0 // We don't have size info from dialog

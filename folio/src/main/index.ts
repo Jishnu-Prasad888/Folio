@@ -1,10 +1,20 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain,dialog  } from 'electron'
 import path from 'path'
 import { initializeDatabase } from './database'
 import { setupWallpaperHandlers } from './wallpaper'
 import { setupImageProcessorHandlers } from './imageProcessor'
+import fs from 'fs'
+import { v4 as uuidv4 } from 'uuid'
 
 let mainWindow: BrowserWindow | null = null
+
+type TrashItem = {
+  id: string
+  name: string
+  deleted_at: string
+  type: 'image' | 'folder'
+}
+
 
 // Initialize database
 const db = initializeDatabase()
@@ -150,8 +160,12 @@ ipcMain.handle('get-trash', async () => {
       WHERE deleted_at IS NOT NULL
     `).all()
 
-    const trash = [...deletedImages, ...deletedFolders]
-      .sort((a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime())
+    const trash = ([...deletedImages, ...deletedFolders] as TrashItem[])
+  .sort((a, b) =>
+    new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
+  )
+
+
 
     return { success: true, data: trash }
   } catch (error) {
@@ -203,6 +217,116 @@ ipcMain.handle('open-file-dialog', async () => {
     return { success: false, message: 'Failed to open file dialog' }
   }
 })
+
+ipcMain.handle('edit-image', async (_event, imageId: string, edit: { operation: string; data: any }) => {
+  try {
+    const { operation, data } = edit
+
+    if (operation === 'rotate') {
+      db.prepare(`
+        UPDATE images
+        SET rotation = ?, updated_at = ?
+        WHERE id = ?
+      `).run(data, new Date().toISOString(), imageId)
+    }
+
+    if (operation === 'crop') {
+      db.prepare(`
+        UPDATE images
+        SET crop_data = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(data), new Date().toISOString(), imageId)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Edit image failed:', error)
+    return { success: false }
+  }
+})
+
+ipcMain.handle(
+  'create-image',
+  async (_event, filePath: string, folderId?: string) => {
+    try {
+      const userDataPath = app.getPath('userData')
+      const imagesDir = path.join(userDataPath, 'images', 'original')
+
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true })
+      }
+
+      const id = uuidv4()
+      const ext = path.extname(filePath)
+      const newFileName = `${id}${ext}`
+      const newPath = path.join(imagesDir, newFileName)
+
+      // Copy file into app storage
+      fs.copyFileSync(filePath, newPath)
+
+      // Insert into database
+      db.prepare(`
+        INSERT INTO images (
+          id,
+          file_path,
+          thumbnail_path,
+          folder_id,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+      `).run(
+        id,
+        newPath,
+        newPath, // replace later with actual thumbnail path
+        folderId ?? null
+      )
+
+      return { success: true, id }
+    } catch (error) {
+      console.error(error)
+      return { success: false }
+    }
+  }
+)
+ipcMain.handle('get-settings', async () => {
+  try {
+    const rows = db.prepare('SELECT key, value FROM settings').all()
+
+    const settings: Record<string, string> = {}
+
+    rows.forEach((row: any) => {
+      settings[row.key] = row.value
+    })
+
+    return { success: true, data: settings }
+  } catch (error) {
+    return { success: false }
+  }
+})
+
+ipcMain.handle('update-settings', async (_event, updates: Record<string, string>) => {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO settings (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value=excluded.value
+    `)
+
+    const transaction = db.transaction((entries: [string, string][]) => {
+      for (const [key, value] of entries) {
+        stmt.run(key, value)
+      }
+    })
+
+    transaction(Object.entries(updates))
+
+    return { success: true }
+  } catch (error) {
+    return { success: false }
+  }
+})
+
+
 
 // Setup other handlers
 setupWallpaperHandlers(ipcMain, db)

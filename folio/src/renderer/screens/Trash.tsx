@@ -51,9 +51,10 @@ const Trash: React.FC = () => {
           </p>
           <Button
             variant="danger"
-            onClick={() => {
+            onClick={async () => {
               if (window.confirm('Empty trash? This cannot be undone.')) {
-                window.api.emptyTrash()
+                await window.api.emptyTrash()
+                loadTrash()
               }
             }}
           >

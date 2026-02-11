@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { AppState, AppActions } from '../types'
 
-const useAppStore = create<AppState & AppActions>((set, get) => ({
+export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // State
   user: null,
   images: [],

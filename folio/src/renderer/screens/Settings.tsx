@@ -12,8 +12,9 @@ const Settings: React.FC = () => {
     // Load user settings
     window.api.getSettings().then((response) => {
       if (response.success) {
-        setUserName(response.data.name || '')
-      }
+  setUserName(response.data?.name || '')
+}
+
     })
 
     // Calculate storage usage (simplified)

@@ -177,7 +177,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
       }
 
       for (const edit of edits) {
-        await window.api.editImage(image.id, edit.operation, edit.data)
+        await window.api.editImage(image.id, {
+  operation: edit.operation,
+  data: edit.data
+})
+
       }
 
       // Update local state

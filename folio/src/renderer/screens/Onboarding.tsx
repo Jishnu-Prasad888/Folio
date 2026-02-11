@@ -174,13 +174,17 @@ const Onboarding: React.FC = () => {
   ]
 
   useEffect(() => {
-    // Check if this is first run
-    window.api.getSettings().then(response => {
-      if (response.success && response.data.first_run === 'true') {
-        setIsOpen(true)
-      }
-    })
-  }, [])
+  window.api.getSettings().then((response) => {
+    if (
+      response.success &&
+      response.data &&
+      response.data.first_run === 'true'
+    ) {
+      setIsOpen(true)
+    }
+  })
+}, [])
+
 
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {

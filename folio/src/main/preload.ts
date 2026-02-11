@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('get-folders'),
 
   // Image operations
-  createImage: (filePath: string, folderId?: string) => 
+  createImage: (filePath: string, folderId?: string) =>
     ipcRenderer.invoke('create-image', filePath, folderId),
   deleteImage: (id: string) => 
     ipcRenderer.invoke('delete-image', id),
@@ -22,8 +22,13 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('update-image', id, updates),
   getImages: (folderId?: string, search?: string) => 
     ipcRenderer.invoke('get-images', folderId, search),
-  editImage: (id: string, operation: string, data?: any) => 
-    ipcRenderer.invoke('edit-image', id, operation, data),
+  editImage: (imageId: string, edit: any) =>
+    ipcRenderer.invoke('edit-image', imageId, edit),
+
+    getSettings: () => ipcRenderer.invoke('get-settings'),
+    updateSettings: (updates: Record<string, string>) =>
+      ipcRenderer.invoke('update-settings', updates),
+
 
   // Tag operations
   getTags: () => 
@@ -48,17 +53,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('get-trash'),
   permanentlyDelete: (type: string, id: string) => 
     ipcRenderer.invoke('permanently-delete', type, id),
-  emptyTrash: () => 
-    ipcRenderer.invoke('empty-trash'),
+  emptyTrash: () => ipcRenderer.invoke('empty-trash'),
 
-  // Settings
-  updateSettings: (settings: any) => 
-    ipcRenderer.invoke('update-settings', settings),
-  getSettings: () => 
-    ipcRenderer.invoke('get-settings'),
-
+  
   // File operations
-  openFileDialog: () => 
+   openFileDialog: () =>
     ipcRenderer.invoke('open-file-dialog'),
   showItemInFolder: (path: string) => 
     ipcRenderer.invoke('show-item-in-folder', path)

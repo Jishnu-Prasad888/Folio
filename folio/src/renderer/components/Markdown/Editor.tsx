@@ -19,7 +19,7 @@ interface MarkdownEditorProps {
 const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   content,
   onChange,
-  imageId,
+  imageId: _imageId,
   placeholder = 'Start writing your notes...',
   className
 }) => {
@@ -86,19 +86,30 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   }
 
   const handleAddLink = () => {
-    if (!editor) return
+  if (!editor) return
 
-    editor
-      .chain()
-      .focus()
-      .setLink({ href: linkUrl })
-      .setText(linkText || linkUrl)
-      .run()
+  const text = linkText || linkUrl
 
-    setLinkDialog(false)
-    setLinkUrl('')
-    setLinkText('')
-  }
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: 'text',
+      text,
+      marks: [
+        {
+          type: 'link',
+          attrs: { href: linkUrl }
+        }
+      ]
+    })
+    .run()
+
+  setLinkDialog(false)
+  setLinkUrl('')
+  setLinkText('')
+}
+
 
   const handleInternalLink = (type: 'image' | 'folder', id: string, name: string) => {
     if (!editor) return
