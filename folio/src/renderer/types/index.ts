@@ -77,4 +77,5 @@ export type AppActions = {
   setSelectedImage: (image: Image | null) => void
   setCurrentFolder: (folderId: string | null) => void
   setError: (error: string | null) => void
+  addImages: (filePaths: string[], folderId?: string) => Promise<void>
 }

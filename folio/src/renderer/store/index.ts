@@ -67,8 +67,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   addFolder: async (name: string, parentId?: string) => {
     try {
       const response = await window.api.createFolder(name, parentId)
+
       if (response.success) {
         await get().loadFolders()
+
+        // Optional: switch to new folder
+        set({ currentFolder: response.data.id })
       } else {
         set({ error: response.message })
       }
@@ -81,7 +85,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     try {
       const response = await window.api.deleteImage(id)
       if (response.success) {
-        await get().loadImages()
+        const { currentFolder } = get()
+        await get().loadImages(currentFolder || undefined)
       } else {
         set({ error: response.message })
       }
@@ -90,12 +95,31 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
+  addImages: async (filePaths: string[], folderId?: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      for (const filePath of filePaths) {
+        const response = await window.api.createImage(filePath, folderId)
+
+        if (!response.success) {
+          throw new Error('Image creation failed')
+        }
+      }
+
+      await get().loadImages(folderId)
+    } catch (err: any) {
+      set({ error: err?.message || 'Failed to add images' })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
   restoreItem: async (type: 'image' | 'folder', id: string) => {
     try {
-      const response = type === 'image' 
-        ? await window.api.restoreImage(id)
-        : await window.api.restoreFolder(id)
-      
+      const response =
+        type === 'image' ? await window.api.restoreImage(id) : await window.api.restoreFolder(id)
+
       if (response.success) {
         await get().loadTrash()
         if (type === 'image') {

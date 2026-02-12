@@ -9,14 +9,14 @@ const AllPhotos: React.FC = () => {
   const { theme } = useAppStore()
 
   const handleAddImage = async () => {
+    console.log('Button clicked')
+
     try {
+      console.log('window.api:', window.api)
       const result = await window.api.openFileDialog()
-      if (result.success && result.data) {
-        // Handle the uploaded file
-        console.log('File selected:', result.data)
-      }
+      console.log('Dialog result:', result)
     } catch (error) {
-      console.error('Failed to open file dialog:', error)
+      console.error('Failed:', error)
     }
   }
 
@@ -48,11 +48,7 @@ const AllPhotos: React.FC = () => {
             />
           </div>
 
-          <Button
-            variant="primary"
-            icon={ImagePlus}
-            onClick={handleAddImage}
-          >
+          <Button variant="primary" icon={ImagePlus} onClick={handleAddImage}>
             Add Image
           </Button>
         </div>
