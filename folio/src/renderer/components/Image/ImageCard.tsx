@@ -1,165 +1,157 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MoreHorizontal, Trash2, Edit3, Link as LinkIcon, Monitor, Eye } from 'lucide-react'
+import clsx from 'clsx'
 import { Image } from '../../types'
 import { useAppStore } from '../../store'
 import Button from '../Common/Button'
-import clsx from 'clsx'
 
 interface ImageCardProps {
   image: Image
 }
 
 const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
-  const [isHovered, setIsHovered] = useState(false)
+  const { deleteImage, setSelectedImage } = useAppStore()
   const [showActions, setShowActions] = useState(false)
-  const { deleteImage, setSelectedImage, theme } = useAppStore()
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+
+  /**
+   * Close dropdown on outside click
+   */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowActions(false)
+      }
+    }
+
+    if (showActions) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showActions])
 
   const handleDelete = () => {
     if (window.confirm('Move this image to trash?')) {
       deleteImage(image.id)
+      setShowActions(false)
     }
   }
 
   const handleSetWallpaper = async () => {
     try {
-      await window.api.setWallpaper(image.id)
-    } catch (error) {
-      console.error('Failed to set wallpaper:', error)
+      await window.api?.setWallpaper?.(image.id)
+      setShowActions(false)
+    } catch (err) {
+      console.error(err)
     }
   }
 
+  const parsedTags =
+    image.tags
+      ?.split(',')
+      .map((t) => t.trim())
+      .filter(Boolean) ?? []
+
   return (
-    <div
-      className={clsx(
-        'group relative overflow-hidden rounded-2xl border border-base-border bg-base-surfaceAlt transition-all duration-200 hover:scale-[1.02] hover:border-primary-300',
-        theme === 'dark' && 'border-dark-muted bg-dark-base'
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Thumbnail */}
-      <div className="aspect-square overflow-hidden">
-        {image.thumbnail_path ? (
-          <img
-            src={`folio:///${image.thumbnail_path.replace(/\\/g, '/')}`}
-            alt="thumbnail"
-            className="h-full w-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              console.error('Image failed to load:', image.thumbnail_path)
-              e.currentTarget.style.display = 'none'
+    <div ref={wrapperRef} className="relative">
+      {/* Card */}
+      <div className="group relative overflow-hidden rounded-3xl border border-[#D8E2E6] bg-white transition-all duration-200 hover:scale-[1.02] dark:border-dark-muted dark:bg-dark-base">
+        {/* Image */}
+        <div className="aspect-square overflow-hidden">
+          {image.thumbnail_path ? (
+            <img
+              src={`folio:///${image.thumbnail_path.replace(/\\/g, '/')}`}
+              alt="thumbnail"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-neutral-200 text-sm text-neutral-500 dark:bg-dark-muted">
+              No Thumbnail
+            </div>
+          )}
+        </div>
+
+        {/* Minimal Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+
+        {/* Top Right More Button */}
+        <div className="absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowActions((prev) => !prev)
             }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-neutral-200 text-sm">
-            No Thumbnail
+            className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Bottom Quick Actions */}
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedImage(image)}
+            className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSetWallpaper}
+            className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
+          >
+            <Monitor className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Tags */}
+        {parsedTags.length > 0 && (
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1">
+            {parsedTags.map((tag, index) => (
+              <span key={index} className="tag bg-[#ECD0DE]/90 backdrop-blur">
+                {tag}
+              </span>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Hover Overlay */}
-      {isHovered && (
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-          <div className="flex items-start justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowActions(!showActions)}
-              className="bg-white/20 text-white hover:bg-white/30"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleDelete}
-              className="bg-error-soft/90 text-error-text hover:bg-error-soft"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Bottom Action Bar */}
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedImage(image)}
-              className="bg-white/20 text-white hover:bg-white/30"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                /* Open editor */
-              }}
-              className="bg-white/20 text-white hover:bg-white/30"
-            >
-              <Edit3 className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                /* Add link */
-              }}
-              className="bg-white/20 text-white hover:bg-white/30"
-            >
-              <LinkIcon className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSetWallpaper}
-              className="bg-white/20 text-white hover:bg-white/30"
-            >
-              <Monitor className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Tags */}
-      {image.tags && (
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1">
-          {image.tags.split(',').map((tag, index) => (
-            <span key={index} className="tag bg-accent-lavender/90">
-              {tag.trim()}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Action Dropdown */}
+      {/* OUTSIDE DROPDOWN */}
       {showActions && (
-        <div
-          className={clsx(
-            'absolute right-3 top-10 z-10 w-48 rounded-xl border border-base-border bg-base-surface p-2 shadow-lg',
-            theme === 'dark' && 'border-dark-muted bg-dark-base'
-          )}
-        >
+        <div className="absolute top-0 right-0 z-30 translate-x-full ml-3 w-52 rounded-2xl border border-[#D8E2E6] bg-white p-2 shadow-xl dark:border-dark-muted dark:bg-dark-base">
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted">
             <Edit3 className="h-4 w-4" />
             Edit Details
           </button>
+
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted">
             <LinkIcon className="h-4 w-4" />
             Copy Link
           </button>
-          <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted">
+
+          <button
+            onClick={handleSetWallpaper}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted"
+          >
             <Monitor className="h-4 w-4" />
             Set as Wallpaper
           </button>
-          <div className="my-1 border-t border-base-border dark:border-dark-muted" />
+
+          <div className="my-2 border-t border-[#D8E2E6] dark:border-dark-muted" />
+
           <button
             onClick={handleDelete}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-error-text hover:bg-error-soft"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#8B3A4A] hover:bg-[#FCE8EC]"
           >
             <Trash2 className="h-4 w-4" />
             Move to Trash

@@ -1,69 +1,90 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
+import { format } from 'date-fns'
 import { useAppStore } from '../../store'
 import ImageCard from './ImageCard'
-import { format } from 'date-fns'
 
 const ImageGrid: React.FC = () => {
   const { images, loadImages, currentFolder, isLoading } = useAppStore()
 
+  /**
+   * Load images when folder changes
+   */
   useEffect(() => {
-    console.log('Current folder:', currentFolder)
-    loadImages(currentFolder && currentFolder !== 'folders' ? currentFolder : undefined)
-  }, [currentFolder])
+    const folder = currentFolder && currentFolder !== 'folders' ? currentFolder : undefined
 
+    loadImages(folder)
+  }, [currentFolder, loadImages])
+
+  /**
+   * Group + sort images by date (newest first)
+   */
+  const groupedImages = useMemo(() => {
+    const groups: Record<string, typeof images> = {}
+
+    images.forEach((image) => {
+      if (!image.created_at) return
+
+      const dateObj = new Date(image.created_at)
+      if (isNaN(dateObj.getTime())) return
+
+      const formattedDate = format(dateObj, 'MMMM d, yyyy')
+
+      if (!groups[formattedDate]) {
+        groups[formattedDate] = []
+      }
+
+      groups[formattedDate].push(image)
+    })
+
+    // Sort groups by date descending
+    return Object.entries(groups).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+  }, [images])
+
+  /**
+   * Loading State
+   */
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-400 border-t-transparent" />
-      </div>
-    )
-  }
-
-  if (images.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="mb-4 rounded-full bg-neutral-100 p-6 dark:bg-dark-muted">
-          <img src="/placeholder-image.svg" alt="No images" className="h-24 w-24 opacity-50" />
+        <div className="glass rounded-3xl p-8">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FF5B04] border-t-transparent" />
         </div>
-        <h3 className="font-heading text-xl">No images yet</h3>
-        <p className="font-body text-sm text-neutral-600 dark:text-neutral-400">
-          Add your first image to get started
-        </p>
       </div>
     )
   }
 
-  // Group images by date
-  const groupedImages = images.reduce(
-    (groups, image) => {
-      if (!image.created_at) return groups
+  /**
+   * Empty State
+   */
+  if (!isLoading && images.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="card-alt mb-6 flex flex-col items-center p-8">
+          <img src="/placeholder-image.svg" alt="No images" className="mb-4 h-24 w-24 opacity-40" />
+          <h3 className="font-heading text-xl font-semibold">No images yet</h3>
+          <p className="font-body mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            Upload your first image to get started.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
-      const dateObj = new Date(image.created_at)
-      if (isNaN(dateObj.getTime())) return groups
-
-      const date = format(dateObj, 'MMMM d, yyyy')
-
-      if (!groups[date]) {
-        groups[date] = []
-      }
-
-      groups[date].push(image)
-      return groups
-    },
-    {} as Record<string, typeof images>
-  )
-
+  /**
+   * Main Grid
+   */
   return (
-    <div className="h-full space-y-8">
-      {Object.entries(groupedImages).map(([date, dateImages]) => (
-        <div key={date}>
-          <h2 className="mb-4 font-heading text-xl">{date}</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className="h-full space-y-10 px-2 md:px-4">
+      {groupedImages.map(([date, dateImages]) => (
+        <section key={date}>
+          <h2 className="mb-2 mt-2 ml-1 font-heading text-medium">{date}</h2>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {dateImages.map((image) => (
               <ImageCard key={image.id} image={image} />
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   )
