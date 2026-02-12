@@ -93,27 +93,6 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
           </Button>
         </div>
 
-        {/* Bottom Quick Actions */}
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedImage(image)}
-            className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSetWallpaper}
-            className="bg-white/20 text-white backdrop-blur hover:bg-white/30"
-          >
-            <Monitor className="h-4 w-4" />
-          </Button>
-        </div>
-
         {/* Tags */}
         {parsedTags.length > 0 && (
           <div className="absolute left-3 top-3 flex flex-wrap gap-1">

@@ -61,7 +61,7 @@ const Modal: React.FC<ModalProps> = ({
       {/* Modal Box */}
       <div
         className={clsx(
-          'relative mx-4 w-full rounded-3xl border border-base-border bg-base-surface shadow-2xl dark:border-dark-muted dark:bg-dark-base transition-transform transform scale-100',
+          'relative mx-4 w-full rounded-3xl border border-base-border bg-base-surface shadow-2xl  transition-transform transform scale-100',
           sizeClasses[size],
           className
         )}
@@ -69,7 +69,7 @@ const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between border-b border-base-border p-6 dark:border-dark-muted">
+          <div className="flex items-center justify-between border-b border-base-border p-6">
             {title && <h2 className="font-heading text-xl">{title}</h2>}
             {showCloseButton && (
               <Button variant="ghost" size="sm" icon={X} onClick={onClose} className="ml-auto" />
