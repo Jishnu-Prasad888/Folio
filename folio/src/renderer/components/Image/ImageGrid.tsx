@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
 import { useAppStore } from '../../store'
 import ImageCard from './ImageCard'
+import { Image } from 'lucide-react'
 
 const ImageGrid: React.FC = () => {
   const { images, loadImages, currentFolder, isLoading } = useAppStore()
@@ -60,7 +61,7 @@ const ImageGrid: React.FC = () => {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center">
         <div className="card-alt mb-6 flex flex-col items-center p-8">
-          <img src="/placeholder-image.svg" alt="No images" className="mb-4 h-24 w-24 opacity-40" />
+          <Image className="mb-4 h-24 w-24 opacity-40" />
           <h3 className="font-heading text-xl font-semibold">No images yet</h3>
           <p className="font-body mt-2 text-sm text-neutral-600 dark:text-neutral-400">
             Upload your first image to get started.
