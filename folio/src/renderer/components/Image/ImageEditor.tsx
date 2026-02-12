@@ -1,18 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react'
-import {
-  Crop,
-  RotateCw,
-  FlipHorizontal,
-  FlipVertical,
-  ZoomIn,
-  ZoomOut,
-  Check,
-  X
-} from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback, useReducer } from 'react'
+import { Crop, RotateCw, Undo2, Redo2, Check, X } from 'lucide-react'
 import { Image } from '../../types'
 import Button from '../Common/Button'
 import Modal from '../Common/Modal'
-import { useAppStore } from '../../store'
 
 interface CropData {
   x: number
@@ -21,264 +11,292 @@ interface CropData {
   height: number
 }
 
+interface EditorState {
+  rotation: number
+  zoom: number
+  flipH: boolean
+  flipV: boolean
+  crop: CropData | null
+  panX: number
+  panY: number
+}
+
 interface ImageEditorProps {
   image: Image
   isOpen: boolean
   onClose: () => void
-  onSave: (editedImage: Image) => void
+  onSave: (img: Image) => void
 }
 
+/* -------------------- HISTORY STACK -------------------- */
+
+function historyReducer(state: EditorState[], action: any) {
+  switch (action.type) {
+    case 'push':
+      return [...state, action.payload]
+    case 'undo':
+      return state.slice(0, -1)
+    default:
+      return state
+  }
+}
+
+/* -------------------- COMPONENT -------------------- */
+
 const ImageEditor: React.FC<ImageEditorProps> = ({ image, isOpen, onClose, onSave }) => {
-  const [rotation, setRotation] = useState(image.rotation || 0)
-  const [flipHorizontal, setFlipHorizontal] = useState(false)
-  const [flipVertical, setFlipVertical] = useState(false)
-  const [zoom, setZoom] = useState(1)
-  const [cropMode, setCropMode] = useState(false)
-  const [cropData, setCropData] = useState<CropData | null>(
-    image.crop_data ? JSON.parse(image.crop_data) : null
-  )
-
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imageRef = useRef<HTMLImageElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 })
+  const imgRef = useRef<HTMLImageElement>(null)
 
-  const { theme } = useAppStore()
+  const [editor, setEditor] = useState<EditorState>({
+    rotation: 0,
+    zoom: 1,
+    flipH: false,
+    flipV: false,
+    crop: null,
+    panX: 0,
+    panY: 0
+  })
 
-  useEffect(() => {
-    if (isOpen && imageRef.current && canvasRef.current) {
-      drawImage()
-    }
-  }, [isOpen, rotation, flipHorizontal, flipVertical, zoom, cropData])
+  const [cropMode, setCropMode] = useState(false)
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const [startPoint, setStartPoint] = useState({ x: 0, y: 0 })
 
-  const drawImage = () => {
-    if (!imageRef.current || !canvasRef.current) return
+  const [history, dispatchHistory] = useReducer(historyReducer, [editor])
+  const [redoStack, setRedoStack] = useState<EditorState[]>([])
 
+  /* -------------------- DRAW ENGINE -------------------- */
+
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
+    const img = imgRef.current
+    if (!canvas || !img) return
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const img = imageRef.current
-    canvas.width = 800
-    canvas.height = 600
+    canvas.width = 1000
+    canvas.height = 700
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+
     ctx.save()
 
-    // Center the image
-    ctx.translate(canvas.width / 2, canvas.height / 2)
-    ctx.rotate((rotation * Math.PI) / 180)
-    ctx.scale(flipHorizontal ? -zoom : zoom, flipVertical ? -zoom : zoom)
+    ctx.translate(canvas.width / 2 + editor.panX, canvas.height / 2 + editor.panY)
+    ctx.rotate((editor.rotation * Math.PI) / 180)
+    ctx.scale(editor.flipH ? -editor.zoom : editor.zoom, editor.flipV ? -editor.zoom : editor.zoom)
 
-    // Apply crop if exists
-    let sx = 0,
-      sy = 0,
-      sWidth = img.width,
-      sHeight = img.height
-    if (cropData) {
-      sx = cropData.x
-      sy = cropData.y
-      sWidth = cropData.width
-      sHeight = cropData.height
-    }
-
-    ctx.drawImage(
-      img,
-      sx,
-      sy,
-      sWidth,
-      sHeight,
-      -img.width / 2,
-      -img.height / 2,
-      img.width,
-      img.height
-    )
+    ctx.drawImage(img, -img.width / 2, -img.height / 2)
 
     ctx.restore()
 
-    // Draw crop overlay if in crop mode
-    if (cropMode) {
-      drawCropOverlay(ctx)
-    }
-  }
+    if (editor.crop) drawCrop(ctx)
+    if (cropMode) drawGuides(ctx)
+  }, [editor, cropMode])
 
-  const drawCropOverlay = (ctx: CanvasRenderingContext2D) => {
-    const canvas = ctx.canvas
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  const drawCrop = (ctx: CanvasRenderingContext2D) => {
+    const { x, y, width, height } = editor.crop!
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    ctx.clearRect(x, y, width, height)
 
-    // Clear the center for cropping area
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-    const cropSize = 400
-    ctx.clearRect(centerX - cropSize / 2, centerY - cropSize / 2, cropSize, cropSize)
-
-    // Draw crop border
     ctx.strokeStyle = '#FF5B04'
     ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
-    ctx.strokeRect(centerX - cropSize / 2, centerY - cropSize / 2, cropSize, cropSize)
+    ctx.setLineDash([8, 6])
+    ctx.strokeRect(x, y, width, height)
     ctx.setLineDash([])
   }
 
-  const handleRotate = () => {
-    setRotation((prev) => (prev + 90) % 360)
+  const drawGuides = (ctx: CanvasRenderingContext2D) => {
+    const centerX = ctx.canvas.width / 2
+    const centerY = ctx.canvas.height / 2
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+    ctx.beginPath()
+    ctx.moveTo(centerX, 0)
+    ctx.lineTo(centerX, ctx.canvas.height)
+    ctx.moveTo(0, centerY)
+    ctx.lineTo(ctx.canvas.width, centerY)
+    ctx.stroke()
   }
 
-  const handleFlipHorizontal = () => {
-    setFlipHorizontal(!flipHorizontal)
+  useEffect(() => {
+    draw()
+  }, [draw])
+
+  /* -------------------- INTERACTION -------------------- */
+
+  const pushHistory = (newState: EditorState) => {
+    dispatchHistory({ type: 'push', payload: newState })
+    setRedoStack([])
   }
 
-  const handleFlipVertical = () => {
-    setFlipVertical(!flipVertical)
+  const updateEditor = (updates: Partial<EditorState>) => {
+    const newState = { ...editor, ...updates }
+    setEditor(newState)
+    pushHistory(newState)
   }
 
-  const handleZoomIn = () => {
-    setZoom(Math.min(zoom + 0.1, 3))
-  }
+  /* -------------------- MOUSE EVENTS -------------------- */
 
-  const handleZoomOut = () => {
-    setZoom(Math.max(zoom - 0.1, 0.5))
-  }
-
-  const handleCrop = () => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     if (cropMode) {
-      // Apply crop
-      const canvas = canvasRef.current
-      if (!canvas) return
-
-      const rect = canvas.getBoundingClientRect()
-      const cropSize = 400
-      const scaleX = imageRef.current!.width / canvas.width
-      const scaleY = imageRef.current!.height / canvas.height
-
-      const cropData: CropData = {
-        x: Math.round((canvas.width / 2 - cropSize / 2) * scaleX),
-        y: Math.round((canvas.height / 2 - cropSize / 2) * scaleY),
-        width: Math.round(cropSize * scaleX),
-        height: Math.round(cropSize * scaleY)
-      }
-
-      setCropData(cropData)
-      setCropMode(false)
-    } else {
-      setCropMode(true)
+      setIsDraggingCrop(true)
+      setStartPoint({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY })
+    } else if (editor.zoom > 1) {
+      setIsPanning(true)
+      setStartPoint({ x: e.clientX, y: e.clientY })
     }
   }
 
-  const handleReset = () => {
-    setRotation(0)
-    setFlipHorizontal(false)
-    setFlipVertical(false)
-    setZoom(1)
-    setCropData(null)
-    setCropMode(false)
-  }
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingCrop) {
+      const width = e.nativeEvent.offsetX - startPoint.x
+      const height = e.nativeEvent.offsetY - startPoint.y
 
-  const handleSave = async () => {
-    try {
-      // Apply edits via IPC
-      const edits = []
-      if (rotation !== image.rotation) {
-        edits.push({ operation: 'rotate', data: rotation })
-      }
-      if (cropData) {
-        edits.push({ operation: 'crop', data: cropData })
-      }
+      setEditor((prev) => ({
+        ...prev,
+        crop: {
+          x: startPoint.x,
+          y: startPoint.y,
+          width,
+          height
+        }
+      }))
+    }
 
-      for (const edit of edits) {
-        await window.api.editImage(image.id, {
-          operation: edit.operation,
-          data: edit.data
-        })
-      }
+    if (isPanning) {
+      const dx = e.clientX - startPoint.x
+      const dy = e.clientY - startPoint.y
 
-      // Update local state
-      const updatedImage = {
-        ...image,
-        rotation,
-        crop_data: cropData ? JSON.stringify(cropData) : undefined
-      }
-      onSave(updatedImage)
-      onClose()
-    } catch (error) {
-      console.error('Failed to save edits:', error)
+      setEditor((prev) => ({
+        ...prev,
+        panX: prev.panX + dx,
+        panY: prev.panY + dy
+      }))
+
+      setStartPoint({ x: e.clientX, y: e.clientY })
     }
   }
+
+  const handleMouseUp = () => {
+    setIsDraggingCrop(false)
+    setIsPanning(false)
+  }
+
+  /* -------------------- KEYBOARD SHORTCUTS -------------------- */
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'r') updateEditor({ rotation: editor.rotation + 90 })
+      if (e.key === 'c') setCropMode((prev) => !prev)
+      if (e.key === '+') updateEditor({ zoom: Math.min(editor.zoom + 0.1, 3) })
+      if (e.key === '-') updateEditor({ zoom: Math.max(editor.zoom - 0.1, 0.5) })
+    }
+
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editor])
+
+  /* -------------------- UNDO / REDO -------------------- */
+
+  const handleUndo = () => {
+    if (history.length > 1) {
+      const newHistory = history.slice(0, -1)
+      setRedoStack((prev) => [history[history.length - 1], ...prev])
+      setEditor(newHistory[newHistory.length - 1])
+      dispatchHistory({ type: 'undo' })
+    }
+  }
+
+  const handleRedo = () => {
+    if (redoStack.length > 0) {
+      const next = redoStack[0]
+      setEditor(next)
+      pushHistory(next)
+      setRedoStack((prev) => prev.slice(1))
+    }
+  }
+
+  /* -------------------- SAVE -------------------- */
+
+  const handleSave = () => {
+    onSave({
+      ...image,
+      rotation: editor.rotation,
+      crop_data: editor.crop ? JSON.stringify(editor.crop) : undefined
+    })
+    onClose()
+  }
+
+  /* -------------------- UI -------------------- */
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Edit Image" size="xl" className="h-[80vh]">
-      <div className="flex h-full flex-col">
+    <Modal isOpen={isOpen} onClose={onClose} title="Advanced Image Editor" size="xl">
+      <div className="flex h-[85vh] flex-col bg-neutral-50">
         {/* Toolbar */}
-        <div className="flex items-center justify-between border-b border-base-border p-4 dark:border-dark-muted">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b p-4 bg-white">
+          <div className="flex gap-2">
+            <Button icon={Crop} onClick={() => setCropMode((p) => !p)} />
             <Button
-              variant={cropMode ? 'primary' : 'secondary'}
-              size="sm"
-              icon={Crop}
-              onClick={handleCrop}
-            >
-              {cropMode ? 'Apply Crop' : 'Crop'}
-            </Button>
-
-            <Button variant="secondary" size="sm" icon={RotateCw} onClick={handleRotate}>
-              Rotate
-            </Button>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={FlipHorizontal}
-              onClick={handleFlipHorizontal}
-            >
-              Flip H
-            </Button>
-
-            <Button variant="secondary" size="sm" icon={FlipVertical} onClick={handleFlipVertical}>
-              Flip V
-            </Button>
+              icon={RotateCw}
+              onClick={() => updateEditor({ rotation: editor.rotation + 90 })}
+            />
+            <Button icon={Undo2} onClick={handleUndo} />
+            <Button icon={Redo2} onClick={handleRedo} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" icon={ZoomOut} onClick={handleZoomOut} />
-
-            <span className="font-ui text-sm">{Math.round(zoom * 100)}%</span>
-
-            <Button variant="ghost" size="sm" icon={ZoomIn} onClick={handleZoomIn} />
-          </div>
-        </div>
-
-        {/* Image Canvas */}
-        <div className="relative flex-1 overflow-hidden" ref={containerRef}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <canvas ref={canvasRef} className="max-h-full max-w-full rounded-lg" />
-            <img
-              ref={imageRef}
-              src={`folio://${image.file_path}`}
-              alt="Editing preview"
-              className="hidden"
-              onLoad={drawImage}
+          <div className="flex items-center gap-3 w-72">
+            <input
+              type="range"
+              min="0"
+              max="360"
+              value={editor.rotation}
+              onChange={(e) => updateEditor({ rotation: Number(e.target.value) })}
+              className="w-full"
+            />
+            <input
+              type="range"
+              min="0.5"
+              max="3"
+              step="0.1"
+              value={editor.zoom}
+              onChange={(e) => updateEditor({ zoom: Number(e.target.value) })}
+              className="w-full"
             />
           </div>
         </div>
 
-        {/* Bottom Controls */}
-        <div className="flex items-center justify-between border-t border-base-border p-4 dark:border-dark-muted">
-          <Button variant="ghost" onClick={handleReset}>
-            Reset
+        {/* Canvas */}
+        <div
+          className={`flex-1 flex items-center justify-center transition-all duration-300 ${
+            cropMode ? 'bg-black/80' : 'bg-neutral-100'
+          }`}
+        >
+          <canvas
+            ref={canvasRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            className="rounded-lg shadow-lg cursor-crosshair"
+          />
+          <img
+            ref={imgRef}
+            src={`folio://${image.file_path}`}
+            alt=""
+            className="hidden"
+            onLoad={draw}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 p-4 border-t bg-white">
+          <Button variant="secondary" icon={X} onClick={onClose}>
+            Cancel
           </Button>
-
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" icon={X} onClick={onClose}>
-              Cancel
-            </Button>
-
-            <Button variant="primary" icon={Check} onClick={handleSave}>
-              Save Changes
-            </Button>
-          </div>
+          <Button variant="primary" icon={Check} onClick={handleSave}>
+            Save
+          </Button>
         </div>
       </div>
     </Modal>

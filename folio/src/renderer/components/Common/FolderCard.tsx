@@ -40,41 +40,44 @@ const FolderCard: React.FC<FolderCardProps> = ({
   return (
     <div
       className={clsx(
-        "group relative rounded-2xl border transition-all duration-200",
+        'group relative rounded-2xl border transition-all duration-200 hover:shadow-md',
         isSelected
-          ? "border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20"
-          : "border-base-border bg-base-surfaceAlt hover:border-primary-200 dark:border-dark-muted dark:bg-dark-base dark:hover:border-primary-400",
-        level > 0 && "ml-6"
+          ? 'border-primary-300 bg-primary-50 dark:border-primary-500 dark:bg-primary-900/20'
+          : 'border-base-border bg-base-surfaceAlt hover:border-primary-200 dark:border-dark-muted dark:bg-dark-base dark:hover:border-primary-400',
+        level > 0 && 'ml-6'
       )}
       style={{ marginLeft: `${level * 1.5}rem` }}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        setShowActions(false)
+      }}
     >
+      {/* Folder Header */}
       <div
-        className="flex cursor-pointer items-center gap-3 p-4"
+        className="flex cursor-pointer items-center gap-3 p-4 transition-colors duration-150"
         onClick={() => onClick(folder.id)}
       >
-        <div className={clsx(
-          "flex h-12 w-12 items-center justify-center rounded-xl",
-          isSelected
-            ? "bg-primary-100 text-primary-500 dark:bg-primary-800"
-            : "bg-neutral-100 text-neutral-600 dark:bg-dark-muted dark:text-neutral-400"
-        )}>
-          {isSelected ? (
-            <FolderOpen className="h-6 w-6" />
-          ) : (
-            <Folder className="h-6 w-6" />
+        <div
+          className={clsx(
+            'flex h-12 w-12 items-center justify-center rounded-xl transition-colors',
+            isSelected
+              ? 'bg-primary-100 text-primary-500 dark:bg-primary-800'
+              : 'bg-neutral-100 text-neutral-600 dark:bg-dark-muted dark:text-neutral-400'
           )}
+        >
+          {isSelected ? <FolderOpen className="h-6 w-6" /> : <Folder className="h-6 w-6" />}
         </div>
 
-        <div className="flex-1">
-          <h3 className="font-ui text-sm font-medium">{folder.name}</h3>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-ui text-sm font-medium truncate">{folder.name}</h3>
           <p className="font-body text-xs text-neutral-500 dark:text-neutral-400">
             Created {new Date(folder.created_at).toLocaleDateString()}
           </p>
         </div>
 
-        {showOptions && isHovered && (
+        {/* Options button */}
+        {showOptions && (
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -83,7 +86,7 @@ const FolderCard: React.FC<FolderCardProps> = ({
                 e.stopPropagation()
                 setShowActions(!showActions)
               }}
-              className="opacity-0 group-hover:opacity-100"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
@@ -95,10 +98,10 @@ const FolderCard: React.FC<FolderCardProps> = ({
       {showActions && (
         <div
           className={clsx(
-            "absolute right-2 top-12 z-10 w-48 rounded-xl border shadow-lg",
+            'absolute right-2 top-12 z-10 w-48 rounded-xl border shadow-lg overflow-hidden transition-opacity',
             theme === 'dark'
-              ? "border-dark-muted bg-dark-base"
-              : "border-base-border bg-base-surface"
+              ? 'border-dark-muted bg-dark-base'
+              : 'border-base-border bg-base-surface'
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -109,11 +112,14 @@ const FolderCard: React.FC<FolderCardProps> = ({
             <Edit3 className="h-4 w-4" />
             Rename Folder
           </button>
+
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted">
             <ImageIcon className="h-4 w-4" />
             Add Images
           </button>
+
           <div className="my-1 border-t border-base-border dark:border-dark-muted" />
+
           <button
             onClick={handleDelete}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-error-text hover:bg-error-soft"

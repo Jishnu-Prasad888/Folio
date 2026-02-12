@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { CheckCircle, AlertCircle, Info, X, XCircle } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react'
 import clsx from 'clsx'
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info'
@@ -8,7 +8,7 @@ interface NotificationProps {
   type: NotificationType
   message: string
   title?: string
-  duration?: number
+  duration?: number // milliseconds before auto-close
   onClose: () => void
   className?: string
 }
@@ -23,19 +23,18 @@ const Notification: React.FC<NotificationProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(true)
 
+  // Auto-dismiss after `duration`
   useEffect(() => {
     if (duration > 0) {
-      const timer = setTimeout(() => {
-        handleClose()
-      }, duration)
-
+      const timer = setTimeout(() => handleClose(), duration)
       return () => clearTimeout(timer)
     }
   }, [duration])
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 300) // Wait for animation to complete
+    // Wait for animation before unmounting
+    setTimeout(onClose, 300)
   }
 
   const typeConfig = {
@@ -77,7 +76,8 @@ const Notification: React.FC<NotificationProps> = ({
   return (
     <div
       className={clsx(
-        "fixed bottom-6 right-6 z-50 w-80 animate-slide-up rounded-2xl border p-4 shadow-lg",
+        'fixed bottom-6 right-6 z-50 w-80 rounded-2xl border p-4 shadow-lg transition-transform duration-300',
+        'animate-slide-up',
         config.bg,
         config.border,
         config.text,
@@ -85,18 +85,14 @@ const Notification: React.FC<NotificationProps> = ({
       )}
     >
       <div className="flex items-start gap-3">
-        <Icon className={clsx("h-5 w-5 flex-shrink-0", config.iconColor)} />
-        
+        <Icon className={clsx('h-5 w-5 flex-shrink-0', config.iconColor)} />
         <div className="flex-1">
-          {title && (
-            <h4 className="font-ui text-sm font-medium mb-1">{title}</h4>
-          )}
+          {title && <h4 className="font-ui text-sm font-medium mb-1">{title}</h4>}
           <p className="font-body text-sm">{message}</p>
         </div>
-
         <button
           onClick={handleClose}
-          className="ml-2 flex-shrink-0 rounded-lg p-1 hover:bg-black/5"
+          className="ml-2 flex-shrink-0 rounded-lg p-1 hover:bg-black/5 transition-colors"
         >
           <X className="h-4 w-4" />
         </button>

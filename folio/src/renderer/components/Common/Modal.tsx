@@ -24,11 +24,10 @@ const Modal: React.FC<ModalProps> = ({
   closeOnOverlayClick = true,
   className
 }) => {
+  // Lock scroll & Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
+      if (e.key === 'Escape') onClose()
     }
 
     if (isOpen) {
@@ -38,7 +37,7 @@ const Modal: React.FC<ModalProps> = ({
 
     return () => {
       document.removeEventListener('keydown', handleEscape)
-      document.body.style.overflow = 'unset'
+      document.body.style.overflow = ''
     }
   }, [isOpen, onClose])
 
@@ -55,14 +54,14 @@ const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
         onClick={closeOnOverlayClick ? onClose : undefined}
       />
 
-      {/* Modal Container */}
+      {/* Modal Box */}
       <div
         className={clsx(
-          "relative mx-4 w-full rounded-3xl border border-base-border bg-base-surface shadow-2xl dark:border-dark-muted dark:bg-dark-base",
+          'relative mx-4 w-full rounded-3xl border border-base-border bg-base-surface shadow-2xl dark:border-dark-muted dark:bg-dark-base transition-transform transform scale-100',
           sizeClasses[size],
           className
         )}
@@ -71,25 +70,15 @@ const Modal: React.FC<ModalProps> = ({
         {/* Header */}
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between border-b border-base-border p-6 dark:border-dark-muted">
-            {title && (
-              <h2 className="font-heading text-xl">{title}</h2>
-            )}
+            {title && <h2 className="font-heading text-xl">{title}</h2>}
             {showCloseButton && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={X}
-                onClick={onClose}
-                className="ml-auto"
-              />
+              <Button variant="ghost" size="sm" icon={X} onClick={onClose} className="ml-auto" />
             )}
           </div>
         )}
 
         {/* Content */}
-        <div className="max-h-[70vh] overflow-y-auto p-6">
-          {children}
-        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">{children}</div>
       </div>
     </div>
   )

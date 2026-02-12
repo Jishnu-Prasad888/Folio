@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Trash2, RotateCcw, Eye, Clock } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Trash2, RotateCcw, Eye, Clock, Folder } from 'lucide-react'
 import { useAppStore } from '../store'
 import Button from '../components/Common/Button'
 import { format } from 'date-fns'
@@ -7,6 +7,10 @@ import { format } from 'date-fns'
 const Trash: React.FC = () => {
   const { trash, loadTrash, restoreItem, permanentlyDelete } = useAppStore()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadTrash()
+  }, [])
 
   const handleRestore = async (type: 'image' | 'folder', id: string) => {
     await restoreItem(type, id)
@@ -17,38 +21,40 @@ const Trash: React.FC = () => {
     setConfirmDelete(null)
   }
 
-  React.useEffect(() => {
-    loadTrash()
-  }, [])
-
   if (trash.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="mb-4 rounded-full bg-neutral-100 p-6 dark:bg-dark-muted">
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="mb-6 rounded-2xl bg-neutral-100 p-8 dark:bg-dark-muted">
           <Trash2 className="h-12 w-12 text-neutral-400" />
         </div>
-        <h3 className="font-heading text-xl">Trash is empty</h3>
-        <p className="font-body text-sm text-neutral-600 dark:text-neutral-400">
-          Deleted items will appear here
+        <h3 className="font-heading text-2xl font-semibold">Trash is empty</h3>
+        <p className="mt-2 max-w-sm text-sm text-neutral-600 dark:text-neutral-400">
+          Deleted images and folders will appear here and stay for 30 days before being permanently
+          removed.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="h-full">
-      <div className="mb-6">
-        <h1 className="font-heading text-2xl">Trash</h1>
-        <p className="font-body text-sm text-neutral-600 dark:text-neutral-400">
+    <div className="h-full px-6 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-heading text-3xl font-semibold">Trash</h1>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
           Items are automatically deleted after 30 days
         </p>
       </div>
 
-      <div className="rounded-3xl border border-base-border bg-base-surface p-6 dark:border-dark-muted dark:bg-dark-base">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="font-body text-sm">
-            {trash.length} item{trash.length !== 1 ? 's' : ''} in trash
+      {/* Container */}
+      <div className="rounded-3xl border border-base-border bg-base-surface p-6 shadow-sm dark:border-dark-muted dark:bg-dark-base">
+        {/* Top Bar */}
+        <div className="mb-6 flex items-center justify-between">
+          <p className="text-sm">
+            <span className="font-medium">{trash.length}</span> item{trash.length !== 1 ? 's' : ''}{' '}
+            in trash
           </p>
+
           <Button
             variant="danger"
             onClick={async () => {
@@ -62,43 +68,48 @@ const Trash: React.FC = () => {
           </Button>
         </div>
 
-        <div className="space-y-2">
+        {/* Items */}
+        <div className="space-y-3">
           {trash.map((item) => (
             <div
               key={`${item.type}-${item.id}`}
-              className="flex items-center justify-between rounded-xl border border-base-border p-4 hover:bg-neutral-50 dark:border-dark-muted dark:hover:bg-dark-muted"
+              className="flex items-center justify-between rounded-2xl border border-base-border p-5 transition-colors hover:bg-neutral-50 dark:border-dark-muted dark:hover:bg-dark-muted"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100 dark:bg-dark-base">
+              {/* Left */}
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-100 dark:bg-dark-base">
                   {item.type === 'image' ? (
                     <Eye className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                   ) : (
-                    <Trash2 className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+                    <Folder className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                   )}
                 </div>
+
                 <div>
-                  <h4 className="font-ui text-sm font-medium">{item.name}</h4>
-                  <div className="flex items-center gap-2 text-xs text-neutral-500">
-                    <Clock className="h-3 w-3" />
+                  <h4 className="text-sm font-medium">{item.name}</h4>
+
+                  <div className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+                    <Clock className="h-3.5 w-3.5" />
                     Deleted {format(new Date(item.deleted_at), 'MMM d, yyyy')}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Right */}
+              <div className="flex items-center gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
                   icon={RotateCcw}
                   onClick={() => handleRestore(item.type, item.id)}
-                  className="bg-success-soft text-success-text hover:opacity-80"
+                  className="bg-success-soft text-success-text hover:opacity-90"
                 >
                   Restore
                 </Button>
 
                 {confirmDelete === item.id ? (
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-error-text">Permanently delete?</p>
+                  <div className="flex items-center gap-3 rounded-xl bg-error-soft px-4 py-2">
+                    <span className="text-xs font-medium text-error-text">Permanently delete?</span>
                     <Button
                       variant="danger"
                       size="sm"
@@ -106,11 +117,7 @@ const Trash: React.FC = () => {
                     >
                       Yes
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmDelete(null)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(null)}>
                       No
                     </Button>
                   </div>
