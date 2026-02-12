@@ -7,7 +7,6 @@ import Folders from './screens/Folders'
 import Settings from './screens/Settings'
 import Trash from './screens/Trash'
 import Onboarding from './screens/Onboarding'
-import Notification from './components/Common/Notification'
 
 const App: React.FC = () => {
   const { theme, currentFolder, loadFolders, loadTags, error, setError } = useAppStore()
@@ -50,22 +49,11 @@ const App: React.FC = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-hidden">
-          {renderScreen()}
-        </div>
+        <div className="flex-1 overflow-hidden">{renderScreen()}</div>
       </div>
 
       {/* Onboarding Modal (first launch) */}
       <Onboarding />
-
-      {/* Error Notification */}
-      {error && (
-        <Notification
-          type="error"
-          message={error}
-          onClose={() => setError(null)}
-        />
-      )}
     </div>
   )
 }
