@@ -1,12 +1,5 @@
 import React, { useState } from 'react'
-import { 
-  MoreHorizontal, 
-  Trash2, 
-  Edit3, 
-  Link as LinkIcon,
-  Monitor,
-  Eye
-} from 'lucide-react'
+import { MoreHorizontal, Trash2, Edit3, Link as LinkIcon, Monitor, Eye } from 'lucide-react'
 import { Image } from '../../types'
 import { useAppStore } from '../../store'
 import Button from '../Common/Button'
@@ -38,20 +31,30 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
   return (
     <div
       className={clsx(
-        "group relative overflow-hidden rounded-2xl border border-base-border bg-base-surfaceAlt transition-all duration-200 hover:scale-[1.02] hover:border-primary-300",
-        theme === 'dark' && "border-dark-muted bg-dark-base"
+        'group relative overflow-hidden rounded-2xl border border-base-border bg-base-surfaceAlt transition-all duration-200 hover:scale-[1.02] hover:border-primary-300',
+        theme === 'dark' && 'border-dark-muted bg-dark-base'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Thumbnail */}
       <div className="aspect-square overflow-hidden">
-        <img
-          src={`file://${image.thumbnail_path}`}
-          alt={image.file_path}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+        {image.thumbnail_path ? (
+          <img
+            src={`folio:///${image.thumbnail_path.replace(/\\/g, '/')}`}
+            alt="thumbnail"
+            className="h-full w-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              console.error('Image failed to load:', image.thumbnail_path)
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-neutral-200 text-sm">
+            No Thumbnail
+          </div>
+        )}
       </div>
 
       {/* Hover Overlay */}
@@ -87,25 +90,29 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
             >
               <Eye className="h-4 w-4" />
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {/* Open editor */}}
+              onClick={() => {
+                /* Open editor */
+              }}
               className="bg-white/20 text-white hover:bg-white/30"
             >
               <Edit3 className="h-4 w-4" />
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {/* Add link */}}
+              onClick={() => {
+                /* Add link */
+              }}
               className="bg-white/20 text-white hover:bg-white/30"
             >
               <LinkIcon className="h-4 w-4" />
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -131,10 +138,12 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 
       {/* Action Dropdown */}
       {showActions && (
-        <div className={clsx(
-          "absolute right-3 top-10 z-10 w-48 rounded-xl border border-base-border bg-base-surface p-2 shadow-lg",
-          theme === 'dark' && "border-dark-muted bg-dark-base"
-        )}>
+        <div
+          className={clsx(
+            'absolute right-3 top-10 z-10 w-48 rounded-xl border border-base-border bg-base-surface p-2 shadow-lg',
+            theme === 'dark' && 'border-dark-muted bg-dark-base'
+          )}
+        >
           <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-dark-muted">
             <Edit3 className="h-4 w-4" />
             Edit Details

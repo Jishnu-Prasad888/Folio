@@ -99,16 +99,26 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      console.log('addImages called with:', filePaths)
+
       for (const filePath of filePaths) {
+        console.log('Calling createImage for:', filePath)
+
         const response = await window.api.createImage(filePath, folderId)
 
+        console.log('response:', response)
+
         if (!response.success) {
-          throw new Error('Image creation failed')
+          throw new Error(response.message || 'Image creation failed')
         }
       }
 
+      console.log('Reloading images...')
       await get().loadImages(folderId)
+
+      console.log('Reload complete')
     } catch (err: any) {
+      console.error('addImages FAILED:', err)
       set({ error: err?.message || 'Failed to add images' })
     } finally {
       set({ isLoading: false })

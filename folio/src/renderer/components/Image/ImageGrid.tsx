@@ -7,11 +7,8 @@ const ImageGrid: React.FC = () => {
   const { images, loadImages, currentFolder, isLoading } = useAppStore()
 
   useEffect(() => {
-    loadImages(
-  currentFolder && currentFolder !== 'folders'
-    ? currentFolder
-    : undefined
-)
+    console.log('Current folder:', currentFolder)
+    loadImages(currentFolder && currentFolder !== 'folders' ? currentFolder : undefined)
   }, [currentFolder])
 
   if (isLoading) {
@@ -37,14 +34,24 @@ const ImageGrid: React.FC = () => {
   }
 
   // Group images by date
-  const groupedImages = images.reduce((groups, image) => {
-    const date = format(new Date(image.created_at), 'MMMM d, yyyy')
-    if (!groups[date]) {
-      groups[date] = []
-    }
-    groups[date].push(image)
-    return groups
-  }, {} as Record<string, typeof images>)
+  const groupedImages = images.reduce(
+    (groups, image) => {
+      if (!image.created_at) return groups
+
+      const dateObj = new Date(image.created_at)
+      if (isNaN(dateObj.getTime())) return groups
+
+      const date = format(dateObj, 'MMMM d, yyyy')
+
+      if (!groups[date]) {
+        groups[date] = []
+      }
+
+      groups[date].push(image)
+      return groups
+    },
+    {} as Record<string, typeof images>
+  )
 
   return (
     <div className="h-full space-y-8">

@@ -10,8 +10,10 @@ const execAsync = promisify(exec)
 export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) {
   ipcMain.handle('set-wallpaper', async (event, imageId: string) => {
     try {
-      const image = db.prepare('SELECT file_path FROM images WHERE id = ?').get(imageId) as { file_path: string }
-      
+      const image = db.prepare('SELECT file_path FROM images WHERE id = ?').get(imageId) as {
+        file_path: string
+      }
+
       if (!image || !fs.existsSync(image.file_path)) {
         return { success: false, message: 'Image not found' }
       }
@@ -34,15 +36,19 @@ export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) 
 
         case 'darwin':
           // macOS
-          await execAsync(`osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${filePath}"'`)
+          await execAsync(
+            `osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${filePath}"'`
+          )
           break
 
         case 'linux':
           // Linux - try to detect desktop environment
           const desktopEnv = process.env.XDG_CURRENT_DESKTOP || ''
-          
+
           if (desktopEnv.toLowerCase().includes('gnome')) {
-            await execAsync(`gsettings set org.gnome.desktop.background picture-uri "file://${filePath}"`)
+            await execAsync(
+              `gsettings set org.gnome.desktop.background picture-uri "folio://${filePath}"`
+            )
           } else if (desktopEnv.toLowerCase().includes('kde')) {
             await execAsync(`qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \`
               var allDesktops = desktops();
@@ -50,7 +56,7 @@ export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) 
                 d = allDesktops[i];
                 d.wallpaperPlugin = "org.kde.image";
                 d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                d.writeConfig("Image", "file://${filePath}")
+                d.writeConfig("Image", "folio://${filePath}")
               }
             \``)
           } else {

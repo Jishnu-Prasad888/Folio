@@ -18,9 +18,24 @@ const Sidebar: React.FC = () => {
   ]
 
   const handleAddImage = async () => {
-    const filePaths = await window.api.openFileDialog()
-    if (!filePaths?.length) return
-    await addImages(filePaths, currentFolder || undefined)
+    try {
+      console.log('Clicked Add Image')
+
+      const result = await window.api.openFileDialog()
+
+      console.log('Dialog result:', result) // 👈 ADD THIS
+
+      if (!result || !result.success || !result.filePaths?.length) {
+        console.log('Dialog failed or empty')
+        return
+      }
+
+      console.log('Calling addImages...')
+      await addImages(result.filePaths, currentFolder || undefined)
+      console.log('Images added successfully')
+    } catch (error) {
+      console.error('Failed to add image:', error)
+    }
   }
 
   const handleCreateFolder = async () => {

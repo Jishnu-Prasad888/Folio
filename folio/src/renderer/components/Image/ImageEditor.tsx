@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Crop, RotateCw, FlipHorizontal, FlipVertical, ZoomIn, ZoomOut, Check, X } from 'lucide-react'
+import {
+  Crop,
+  RotateCw,
+  FlipHorizontal,
+  FlipVertical,
+  ZoomIn,
+  ZoomOut,
+  Check,
+  X
+} from 'lucide-react'
 import { Image } from '../../types'
 import Button from '../Common/Button'
 import Modal from '../Common/Modal'
@@ -19,12 +28,7 @@ interface ImageEditorProps {
   onSave: (editedImage: Image) => void
 }
 
-const ImageEditor: React.FC<ImageEditorProps> = ({
-  image,
-  isOpen,
-  onClose,
-  onSave
-}) => {
+const ImageEditor: React.FC<ImageEditorProps> = ({ image, isOpen, onClose, onSave }) => {
   const [rotation, setRotation] = useState(image.rotation || 0)
   const [flipHorizontal, setFlipHorizontal] = useState(false)
   const [flipVertical, setFlipVertical] = useState(false)
@@ -33,7 +37,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
   const [cropData, setCropData] = useState<CropData | null>(
     image.crop_data ? JSON.parse(image.crop_data) : null
   )
-  
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -69,7 +73,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
     ctx.scale(flipHorizontal ? -zoom : zoom, flipVertical ? -zoom : zoom)
 
     // Apply crop if exists
-    let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height
+    let sx = 0,
+      sy = 0,
+      sWidth = img.width,
+      sHeight = img.height
     if (cropData) {
       sx = cropData.x
       sy = cropData.y
@@ -79,9 +86,14 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
 
     ctx.drawImage(
       img,
-      sx, sy, sWidth, sHeight,
-      -img.width / 2, -img.height / 2,
-      img.width, img.height
+      sx,
+      sy,
+      sWidth,
+      sHeight,
+      -img.width / 2,
+      -img.height / 2,
+      img.width,
+      img.height
     )
 
     ctx.restore()
@@ -102,7 +114,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
     const centerY = canvas.height / 2
     const cropSize = 400
     ctx.clearRect(centerX - cropSize / 2, centerY - cropSize / 2, cropSize, cropSize)
-    
+
     // Draw crop border
     ctx.strokeStyle = '#FF5B04'
     ctx.lineWidth = 2
@@ -178,10 +190,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
 
       for (const edit of edits) {
         await window.api.editImage(image.id, {
-  operation: edit.operation,
-  data: edit.data
-})
-
+          operation: edit.operation,
+          data: edit.data
+        })
       }
 
       // Update local state
@@ -198,13 +209,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Edit Image"
-      size="xl"
-      className="h-[80vh]"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Image" size="xl" className="h-[80vh]">
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b border-base-border p-4 dark:border-dark-muted">
@@ -217,13 +222,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
             >
               {cropMode ? 'Apply Crop' : 'Crop'}
             </Button>
-            
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RotateCw}
-              onClick={handleRotate}
-            >
+
+            <Button variant="secondary" size="sm" icon={RotateCw} onClick={handleRotate}>
               Rotate
             </Button>
 
@@ -236,45 +236,27 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
               Flip H
             </Button>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={FlipVertical}
-              onClick={handleFlipVertical}
-            >
+            <Button variant="secondary" size="sm" icon={FlipVertical} onClick={handleFlipVertical}>
               Flip V
             </Button>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={ZoomOut}
-              onClick={handleZoomOut}
-            />
-            
+            <Button variant="ghost" size="sm" icon={ZoomOut} onClick={handleZoomOut} />
+
             <span className="font-ui text-sm">{Math.round(zoom * 100)}%</span>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={ZoomIn}
-              onClick={handleZoomIn}
-            />
+
+            <Button variant="ghost" size="sm" icon={ZoomIn} onClick={handleZoomIn} />
           </div>
         </div>
 
         {/* Image Canvas */}
         <div className="relative flex-1 overflow-hidden" ref={containerRef}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <canvas
-              ref={canvasRef}
-              className="max-h-full max-w-full rounded-lg"
-            />
+            <canvas ref={canvasRef} className="max-h-full max-w-full rounded-lg" />
             <img
               ref={imageRef}
-              src={`file://${image.file_path}`}
+              src={`folio://${image.file_path}`}
               alt="Editing preview"
               className="hidden"
               onLoad={drawImage}
@@ -284,27 +266,16 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
 
         {/* Bottom Controls */}
         <div className="flex items-center justify-between border-t border-base-border p-4 dark:border-dark-muted">
-          <Button
-            variant="ghost"
-            onClick={handleReset}
-          >
+          <Button variant="ghost" onClick={handleReset}>
             Reset
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              icon={X}
-              onClick={onClose}
-            >
+            <Button variant="secondary" icon={X} onClick={onClose}>
               Cancel
             </Button>
-            
-            <Button
-              variant="primary"
-              icon={Check}
-              onClick={handleSave}
-            >
+
+            <Button variant="primary" icon={Check} onClick={handleSave}>
               Save Changes
             </Button>
           </div>

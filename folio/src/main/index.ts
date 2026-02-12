@@ -4,8 +4,8 @@ import { initializeDatabase } from './database'
 import { setupWallpaperHandlers } from './wallpaper'
 import { setupImageProcessorHandlers } from './imageProcessor'
 import fs from 'fs'
-import { v4 as uuidv4 } from 'uuid'
 import { is } from '@electron-toolkit/utils'
+import { protocol } from 'electron'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -50,6 +50,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  protocol.registerFileProtocol('folio', (request, callback) => {
+    const filePath = request.url.replace('folio://', '')
+    callback(decodeURI(filePath))
+  })
+
   createWindow()
 
   app.on('activate', () => {
@@ -103,61 +108,61 @@ ipcMain.handle('get-tags', async () => {
 })
 
 // IPC Handlers
-ipcMain.handle('get-images', async (event, folderId?: string, search?: string) => {
-  try {
-    if (search) {
-      const query = `
-        SELECT i.*, GROUP_CONCAT(t.name) as tags
-        FROM images i
-        LEFT JOIN image_tags it ON i.id = it.image_id
-        LEFT JOIN tags t ON it.tag_id = t.id
-        WHERE i.deleted_at IS NULL 
-        AND (i.file_path LIKE ? OR EXISTS (
-          SELECT 1 FROM notes n WHERE n.image_id = i.id AND n.markdown LIKE ?
-        ))
-        GROUP BY i.id
-        ORDER BY i.created_at DESC
-      `
-      const searchTerm = `%${search}%`
-      const images = db.prepare(query).all(searchTerm, searchTerm)
-      return { success: true, data: images }
-    }
+// ipcMain.handle('get-images', async (event, folderId?: string, search?: string) => {
+//   try {
+//     if (search) {
+//       const query = `
+//         SELECT i.*, GROUP_CONCAT(t.name) as tags
+//         FROM images i
+//         LEFT JOIN image_tags it ON i.id = it.image_id
+//         LEFT JOIN tags t ON it.tag_id = t.id
+//         WHERE i.deleted_at IS NULL
+//         AND (i.file_path LIKE ? OR EXISTS (
+//           SELECT 1 FROM notes n WHERE n.image_id = i.id AND n.markdown LIKE ?
+//         ))
+//         GROUP BY i.id
+//         ORDER BY i.created_at DESC
+//       `
+//       const searchTerm = `%${search}%`
+//       const images = db.prepare(query).all(searchTerm, searchTerm)
+//       return { success: true, data: images }
+//     }
 
-    if (folderId) {
-      const images = db
-        .prepare(
-          `
-        SELECT i.*, GROUP_CONCAT(t.name) as tags
-        FROM images i
-        LEFT JOIN image_tags it ON i.id = it.image_id
-        LEFT JOIN tags t ON it.tag_id = t.id
-        WHERE i.folder_id = ? AND i.deleted_at IS NULL
-        GROUP BY i.id
-        ORDER BY i.created_at DESC
-      `
-        )
-        .all(folderId)
-      return { success: true, data: images }
-    }
+//     if (folderId) {
+//       const images = db
+//         .prepare(
+//           `
+//         SELECT i.*, GROUP_CONCAT(t.name) as tags
+//         FROM images i
+//         LEFT JOIN image_tags it ON i.id = it.image_id
+//         LEFT JOIN tags t ON it.tag_id = t.id
+//         WHERE i.folder_id = ? AND i.deleted_at IS NULL
+//         GROUP BY i.id
+//         ORDER BY i.created_at DESC
+//       `
+//         )
+//         .all(folderId)
+//       return { success: true, data: images }
+//     }
 
-    const images = db
-      .prepare(
-        `
-      SELECT i.*, GROUP_CONCAT(t.name) as tags
-      FROM images i
-      LEFT JOIN image_tags it ON i.id = it.image_id
-      LEFT JOIN tags t ON it.tag_id = t.id
-      WHERE i.deleted_at IS NULL
-      GROUP BY i.id
-      ORDER BY i.created_at DESC
-    `
-      )
-      .all()
-    return { success: true, data: images }
-  } catch (error) {
-    return { success: false, message: 'Failed to fetch images' }
-  }
-})
+//     const images = db
+//       .prepare(
+//         `
+//       SELECT i.*, GROUP_CONCAT(t.name) as tags
+//       FROM images i
+//       LEFT JOIN image_tags it ON i.id = it.image_id
+//       LEFT JOIN tags t ON it.tag_id = t.id
+//       WHERE i.deleted_at IS NULL
+//       GROUP BY i.id
+//       ORDER BY i.created_at DESC
+//     `
+//       )
+//       .all()
+//     return { success: true, data: images }
+//   } catch (error) {
+//     return { success: false, message: 'Failed to fetch images' }
+//   }
+// })
 
 ipcMain.handle('create-folder', async (event, name: string, parentId?: string) => {
   try {
@@ -269,14 +274,14 @@ ipcMain.handle('open-file-dialog', async () => {
       ]
     })
 
-    if (!result.canceled && result.filePaths.length > 0) {
-      return {
-        success: true,
-        data: result.filePaths.length === 1 ? result.filePaths[0] : result.filePaths
-      }
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false }
     }
 
-    return { success: false, message: 'No file selected' }
+    return {
+      success: true,
+      filePaths: result.filePaths
+    }
   } catch (error) {
     return { success: false, message: 'Failed to open file dialog' }
   }
