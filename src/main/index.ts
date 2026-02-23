@@ -165,7 +165,7 @@ ipcMain.handle('get-tags', async () => {
 //   }
 // })
 
-ipcMain.handle('create-folder', async (event, name: string, parentId?: string) => {
+ipcMain.handle('create-folder', async (_event, name: string, parentId?: string) => {
   try {
     const id = crypto.randomUUID()
     const now = new Date().toISOString()

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, clipboard } from 'electron'
 
 contextBridge.exposeInMainWorld('api', {
   // Folder operations
@@ -44,7 +44,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // File operations
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
-  showItemInFolder: (path: string) => ipcRenderer.invoke('show-item-in-folder', path)
+  showItemInFolder: (path: string) => ipcRenderer.invoke('show-item-in-folder', path),
+
+  // clipboard operations
+  copyToClipboard: (text: string) => clipboard.writeText(text)
 })
 
 // Type declarations
