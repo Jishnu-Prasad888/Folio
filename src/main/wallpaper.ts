@@ -36,7 +36,7 @@ export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) 
           const normalizedPath = safeTempPath.replace(/\\/g, '/')
 
           const psScript = `
-Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name WallpaperStyle -Value 6
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name WallpaperStyle -Value 10
 Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name TileWallpaper -Value 0
 
 Add-Type @"
