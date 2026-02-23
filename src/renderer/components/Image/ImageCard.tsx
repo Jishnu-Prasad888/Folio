@@ -57,6 +57,11 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
     try {
       await window.api?.setWallpaper?.(image.id)
       showToast('Wallpaper set successfully', 'success')
+      const result = await window.api?.setWallpaper?.(image.id)
+      if (!result?.success) {
+        console.error('Set wallpaper failed:', result?.message)
+        alert(result?.message) // temporarily, to see what's happening
+      }
       setShowActions(false)
     } catch (err) {
       showToast('Error in setting the wallpaper', 'error')
