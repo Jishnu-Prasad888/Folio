@@ -25,10 +25,18 @@ export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) 
 
       switch (platform) {
         case 'win32': {
-          const escapedPath = filePath.replace(/\\/g, '\\\\')
+          const safeTempPath = path.join(os.tmpdir(), 'wallpaper_temp.png')
+
+          await sharp(filePath)
+            .flatten({ background: { r: 0, g: 0, b: 0 } })
+            .toFormat('png')
+            .toFile(safeTempPath)
+
+          // Use forward slashes - PowerShell handles them fine
+          const normalizedPath = safeTempPath.replace(/\\/g, '/')
 
           const psScript = `
-Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name WallpaperStyle -Value 10
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name WallpaperStyle -Value 6
 Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name TileWallpaper -Value 0
 
 Add-Type @"
@@ -40,12 +48,10 @@ public class Wallpaper {
 }
 "@
 
-[Wallpaper]::SystemParametersInfo(20, 0, "${escapedPath}", 3)
+[Wallpaper]::SystemParametersInfo(20, 0, "${normalizedPath}", 3)
 `
-
           const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
           await execAsync(`powershell -NoProfile -EncodedCommand ${encoded}`)
-
           break
         }
         case 'darwin': {
