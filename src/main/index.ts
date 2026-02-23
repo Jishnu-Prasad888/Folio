@@ -43,6 +43,7 @@ function createWindow() {
 
   if (is.dev) {
     mainWindow.loadURL('http://localhost:5173')
+    mainWindow.webContents.openDevTools()
     Menu.setApplicationMenu(null)
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
