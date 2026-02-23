@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import path from 'path'
 import { initializeDatabase } from './database'
 import { setupWallpaperHandlers } from './wallpaper'
@@ -43,7 +43,7 @@ function createWindow() {
 
   if (is.dev) {
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    Menu.setApplicationMenu(null)
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }

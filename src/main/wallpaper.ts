@@ -3,16 +3,18 @@ import Database from 'better-sqlite3'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import fs from 'fs'
+import sharp from 'sharp'
+import os from 'os'
 import path from 'path'
 
 const execAsync = promisify(exec)
 
 export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) {
-  ipcMain.handle('set-wallpaper', async (event, imageId: string) => {
+  ipcMain.handle('set-wallpaper', async (_event, imageId: string) => {
     try {
-      const image = db.prepare('SELECT file_path FROM images WHERE id = ?').get(imageId) as {
-        file_path: string
-      }
+      const image = db.prepare('SELECT file_path FROM images WHERE id = ?').get(imageId) as
+        | { file_path: string }
+        | undefined
 
       if (!image || !fs.existsSync(image.file_path)) {
         return { success: false, message: 'Image not found' }
@@ -22,48 +24,67 @@ export function setupWallpaperHandlers(ipcMain: IpcMain, db: Database.Database) 
       const filePath = image.file_path
 
       switch (platform) {
-        case 'win32':
-          // Windows
-          await execAsync(`powershell -command "Add-Type -TypeDefinition @' 
-            using System; 
-            using System.Runtime.InteropServices; 
-            public class Wallpaper { 
-              [DllImport("user32.dll", CharSet = CharSet.Auto)] 
-              public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni); 
-            } 
-          '@; [Wallpaper]::SystemParametersInfo(20, 0, '${filePath.replace(/\\/g, '\\\\')}', 0)"`)
-          break
+        case 'win32': {
+          const escapedPath = filePath.replace(/\\/g, '\\\\')
 
-        case 'darwin':
-          // macOS
+          const psScript = `
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name WallpaperStyle -Value 10
+Set-ItemProperty -Path "HKCU:\\Control Panel\\Desktop" -Name TileWallpaper -Value 0
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Wallpaper {
+  [DllImport("user32.dll", CharSet = CharSet.Auto)]
+  public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+
+[Wallpaper]::SystemParametersInfo(20, 0, "${escapedPath}", 3)
+`
+
+          const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
+          await execAsync(`powershell -NoProfile -EncodedCommand ${encoded}`)
+
+          break
+        }
+        case 'darwin': {
+          const escapedPath = filePath.replace(/"/g, '\\"')
           await execAsync(
-            `osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${filePath}"'`
+            `osascript -e 'tell application "Finder" to set desktop picture to POSIX file "${escapedPath}"'`
           )
           break
+        }
 
-        case 'linux':
-          // Linux - try to detect desktop environment
-          const desktopEnv = process.env.XDG_CURRENT_DESKTOP || ''
+        case 'linux': {
+          const desktopEnv = (process.env.XDG_CURRENT_DESKTOP || '').toLowerCase()
 
-          if (desktopEnv.toLowerCase().includes('gnome')) {
+          if (desktopEnv.includes('gnome')) {
             await execAsync(
-              `gsettings set org.gnome.desktop.background picture-uri "folio://${filePath}"`
+              `gsettings set org.gnome.desktop.background picture-uri "file://${filePath}"`
             )
-          } else if (desktopEnv.toLowerCase().includes('kde')) {
-            await execAsync(`qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \`
-              var allDesktops = desktops();
-              for (i=0;i<allDesktops.length;i++) {
-                d = allDesktops[i];
-                d.wallpaperPlugin = "org.kde.image";
-                d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-                d.writeConfig("Image", "folio://${filePath}")
-              }
-            \``)
+          } else if (desktopEnv.includes('kde')) {
+            const kdeScript = `
+var allDesktops = desktops();
+for (var i = 0; i < allDesktops.length; i++) {
+  var d = allDesktops[i];
+  d.wallpaperPlugin = "org.kde.image";
+  d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+  d.writeConfig("Image", "file://${filePath}");
+}
+`
+            await execAsync(
+              `qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "${kdeScript.replace(
+                /\n/g,
+                ''
+              )}"`
+            )
           } else {
-            // Fallback for other desktop environments
             await execAsync(`pcmanfm --set-wallpaper="${filePath}"`)
           }
+
           break
+        }
 
         default:
           return { success: false, message: `Unsupported platform: ${platform}` }
