@@ -40,7 +40,7 @@ const Toast: React.FC<ToastProps> = ({ id, message, type = 'success', onClose })
       )}
     >
       {/* Subtle orange glow accent */}
-      <div className="absolute inset-0 bg-gradient-to-r from-orange-400/10 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-r from-orange-400/10 via-transparent to-transparent pointer-events-none" />
 
       <Icon className={clsx('h-5 w-5 shrink-0', styles[type].accent)} />
 

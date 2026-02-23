@@ -183,7 +183,7 @@ ipcMain.handle('create-folder', async (_event, name: string, parentId?: string) 
   }
 })
 
-ipcMain.handle('delete-folder', async (event, id: string) => {
+ipcMain.handle('delete-folder', async (_event, id: string) => {
   try {
     const now = new Date().toISOString()
     db.prepare('UPDATE folders SET deleted_at = ? WHERE id = ?').run(now, id)
@@ -193,7 +193,7 @@ ipcMain.handle('delete-folder', async (event, id: string) => {
   }
 })
 
-ipcMain.handle('update-folder', async (event, id: string, updates: { name?: string }) => {
+ipcMain.handle('update-folder', async (_event, id: string, updates: { name?: string }) => {
   try {
     if (updates.name) {
       db.prepare('UPDATE folders SET name = ? WHERE id = ?').run(updates.name, id)
